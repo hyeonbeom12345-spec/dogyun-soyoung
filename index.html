@@ -835,7 +835,7 @@ function renderList(){
 }
 
 function renderStats(){
-  const p=S.person,txs=getTxs(p);
+  const p=S.person,txs=getTxs(p).filter(t=>t.why!=='수입');
   const catT={};txs.forEach(t=>{catT[t.cat]=(catT[t.cat]||0)+t.amt});
   const total=Object.values(catT).reduce((s,v)=>s+v,0)||1;
   const cats=Object.entries(catT).sort((a,b)=>b[1]-a[1]);
@@ -963,21 +963,14 @@ async function saveSettings(){
   // 고정비용은 S.fixedCosts 그대로 사용 (목록 형태라 별도 input 없음)
   S.fixedCosts=S.fixedCosts.filter(f=>f.name);
   const month=S.selectedMonth||getMonth();
-  // 소득 업데이트
-  S.income.도균.수입1=parseInt(document.getElementById('s-dk-inc1')?.value)||0;
-  S.income.도균.수입2=parseInt(document.getElementById('s-dk-inc2')?.value)||0;
-  S.income.도균.수입기타=parseInt(document.getElementById('s-dk-inc3')?.value)||0;
-  S.income.소영.수입1=parseInt(document.getElementById('s-sy-inc1')?.value)||0;
-  S.income.소영.수입2=parseInt(document.getElementById('s-sy-inc2')?.value)||0;
-  S.income.소영.수입기타=parseInt(document.getElementById('s-sy-inc3')?.value)||0;
+
   const fixedItems=S.fixedCosts.map(f=>({name:f.name,amt:f.amt,pay:f.pay||'',owner:f.owner||'공동'}));
   const body={
     action:'saveSettings', month,
     '도균_식비예산':S.budgets.도균.식비,'도균_용돈예산':S.budgets.도균.용돈,
     '소영_식비예산':S.budgets.소영.식비,'소영_용돈예산':S.budgets.소영.용돈,
     '법인카드한도':S.corpLimit,
-    '도균_수입1':S.income.도균.수입1,'도균_수입2':S.income.도균.수입2,'도균_수입기타':S.income.도균.수입기타,
-    '소영_수입1':S.income.소영.수입1,'소영_수입2':S.income.소영.수입2,'소영_수입기타':S.income.소영.수입기타,
+
     fixedItems
   };
   try{
