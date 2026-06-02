@@ -604,15 +604,16 @@ function switchAddType(type){
   const activeStyle='background:#534AB7;border-color:#534AB7;color:#fff;font-weight:600';
   const inactiveStyle='';
 
+  const baseStyle='padding:24px 8px;font-size:17px;font-weight:600;border:2px solid;border-radius:12px;cursor:pointer;font-family:var(--font);display:flex;flex-direction:column;align-items:center;gap:8px;transition:all 0.15s';
   if(type==='expense'){
-    expBtn.style.cssText=activeStyle;
-    incBtn.style.cssText=inactiveStyle;
+    expBtn.style.cssText=baseStyle+';background:#FCEBEB;border-color:#A32D2D;color:#A32D2D';
+    incBtn.style.cssText=baseStyle+';background:var(--gray-light);border-color:var(--border);color:var(--text-sub)';
     expForm.style.display='block';
     incForm.style.display='none';
     S.addType='expense';
   } else {
-    incBtn.style.cssText='background:#1D9E75;border-color:#1D9E75;color:#fff;font-weight:600';
-    expBtn.style.cssText=inactiveStyle;
+    incBtn.style.cssText=baseStyle+';background:#E1F5EE;border-color:#1D9E75;color:#1D9E75';
+    expBtn.style.cssText=baseStyle+';background:var(--gray-light);border-color:var(--border);color:var(--text-sub)';
     incForm.style.display='block';
     expForm.style.display='none';
     S.addType='income';
@@ -968,7 +969,7 @@ async function saveSettings(){
   S.income.소영.수입1=parseInt(document.getElementById('s-sy-inc1')?.value)||0;
   S.income.소영.수입2=parseInt(document.getElementById('s-sy-inc2')?.value)||0;
   S.income.소영.수입기타=parseInt(document.getElementById('s-sy-inc3')?.value)||0;
-  const fixedItems=S.fixedCosts.map(f=>({name:f.name,amt:f.amt,pay:f.pay||''}));
+  const fixedItems=S.fixedCosts.map(f=>({name:f.name,amt:f.amt,pay:f.pay||'',owner:f.owner||'공동'}));
   const body={
     action:'saveSettings', month,
     '도균_식비예산':S.budgets.도균.식비,'도균_용돈예산':S.budgets.도균.용돈,
