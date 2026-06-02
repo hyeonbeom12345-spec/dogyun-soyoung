@@ -288,7 +288,7 @@ body{display:flex;justify-content:center;align-items:flex-start}
       <div id="form-expense" style="display:none">
         <div class="card" style="padding:18px">
           <div class="form-row"><label class="form-label">뭐했어</label><input class="form-input" type="text" id="f-desc" placeholder="예) 점심 혼밥, 마트 장보기"></div>
-          <div class="form-row"><label class="form-label">얼마</label><input class="form-input" type="number" id="f-amt" placeholder="0" inputmode="numeric"></div>
+          <div class="form-row"><label class="form-label">얼마</label><input class="form-input" type="text" id="f-amt" placeholder="0" inputmode="numeric"></div>
           <div class="form-row"><label class="form-label">성격이 뭐야</label><div class="radio-grid" id="rg-why" style="grid-template-columns:repeat(3,minmax(0,1fr))"></div></div>
           <div class="form-row"><label class="form-label">카드·현금</label><div class="radio-grid" id="rg-pay"></div></div>
           <div id="etc-pay-desc" style="display:none;margin-bottom:16px"><input class="form-input" type="text" id="f-pay-etc" placeholder="기타 결제수단 설명 (예: 상품권, 포인트)"></div>
@@ -302,7 +302,7 @@ body{display:flex;justify-content:center;align-items:flex-start}
       <div id="form-income" style="display:none">
         <div class="card" style="padding:18px">
           <div class="form-row"><label class="form-label">수입 내용</label><input class="form-input" type="text" id="f-inc-desc" placeholder="예) 월급, 보너스"></div>
-          <div class="form-row"><label class="form-label">얼마</label><input class="form-input" type="number" id="f-inc-amt" placeholder="0" inputmode="numeric"></div>
+          <div class="form-row"><label class="form-label">얼마</label><input class="form-input" type="text" id="f-inc-amt" placeholder="0" inputmode="numeric"></div>
           <div class="form-row" style="margin-bottom:0"><label class="form-label">날짜</label><input class="form-input" type="date" id="f-inc-date"></div>
         </div>
         <button class="btn-primary green" onclick="submitIncome()"><i class="ti ti-plus"></i> 수입 추가</button>
@@ -343,6 +343,39 @@ const CC={'도균 식비':'#534AB7','소영 식비':'#D4537E','공동 식비':'#
 const CB={'도균 식비':'#EEEDFE','소영 식비':'#FBEAF0','공동 식비':'#E1F5EE','교통':'#FAEEDA','쇼핑':'#FAECE7','문화·여가':'#E6F1FB','의료':'#FCEBEB','기타':'#F1EFE8'};
 const WC={'개인 생활비':'#534AB7','공동 생활비':'#1D9E75','용돈':'#D85A30'};
 const WB={'개인 생활비':'#EEEDFE','공동 생활비':'#E1F5EE','용돈':'#FAECE7'};
+
+
+// 금액 입력 콤마 처리
+function setupMoneyInput(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('input', function() {
+    const raw = this.value.replace(/[^0-9]/g, '');
+    const num = parseInt(raw) || 0;
+    // 커서 위치 유지하며 콤마 표시
+    this.dataset.raw = raw;
+    if (raw) this.value = Number(raw).toLocaleString();
+    else this.value = '';
+  });
+  el.addEventListener('focus', function() {
+    // 포커스시 숫자만
+    const raw = this.dataset.raw || this.value.replace(/[^0-9]/g, '');
+    this.value = raw;
+  });
+  el.addEventListener('blur', function() {
+    // 포커스 해제시 콤마
+    const raw = this.value.replace(/[^0-9]/g, '');
+    this.dataset.raw = raw;
+    if (raw) this.value = Number(raw).toLocaleString();
+  });
+}
+
+function getMoneyValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return 0;
+  const raw = el.dataset.raw || el.value.replace(/[^0-9]/g, '');
+  return parseInt(raw) || 0;
+}
 
 function getMonth(d){const dt=d?new Date(d):new Date();return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')}
 
@@ -422,7 +455,7 @@ async function loadSettings(month=null){
       // 고정비용 파싱 - reservedKeys 제외한 나머지
       const reservedSettingsKeys=['도균_식비예산','도균_용돈예산','소영_식비예산','소영_용돈예산','법인카드한도','도균_수입1','도균_수입2','도균_수입기타','소영_수입1','소영_수입2','소영_수입기타'];
       S.fixedCosts=Object.entries(d)
-        .filter(([k])=>!reservedSettingsKeys.includes(k)&&!k.startsWith('결제수단_'))
+        .filter(([k])=>!reservedSettingsKeys.includes(k)&&!k.startsWith('결제수단_')&&!k.startsWith('구분_'))
         .map(([k,v],i)=>({id:100+i,name:k,amt:Number(v)||0,pay:d['결제수단_'+k]||'',owner:d['구분_'+k]||'공동',monthKey:k}));
     }
   }catch(e){}
@@ -469,7 +502,7 @@ function switchPerson(p,btn){
   S.page='home';
   document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.bnav-btn')[0]?.classList.add('active');
-  if(p==='설정') renderSettings();else renderHome();
+  if(p==='설정'){renderSettings();setTimeout(()=>{['s-dk-sib','s-dk-yd','s-sy-sib','s-sy-yd','s-corp','new-fc-amt'].forEach(setupMoneyInput);},0);}else renderHome();
 }
 
 
@@ -624,7 +657,7 @@ function switchAddType(type){
 
 async function submitIncome(){
   const desc=document.getElementById('f-inc-desc').value.trim();
-  const amt=parseInt(document.getElementById('f-inc-amt').value);
+  const amt=getMoneyValue('f-inc-amt');
   const date=document.getElementById('f-inc-date').value||new Date().toISOString().slice(0,10);
   if(!desc||!amt){alert('내용과 금액을 입력해주세요');return}
 
@@ -664,6 +697,8 @@ function switchPage(p,btn){
       if(iForm) iForm.style.display='none';
     }
     renderAddButtons();
+    setupMoneyInput('f-amt');
+    setupMoneyInput('f-inc-amt');
     if(!document.getElementById('f-date').value)
       document.getElementById('f-date').value=new Date().toISOString().slice(0,10);
     const incDate=document.getElementById('f-inc-date');
@@ -681,7 +716,7 @@ function getTxs(p){
 
 async function submitForm(){
   const desc=document.getElementById('f-desc').value.trim();
-  const amt=parseInt(document.getElementById('f-amt').value);
+  const amt=getMoneyValue('f-amt');
   // 날짜를 항상 YYYY-MM-DD 형식으로 처리
   const rawDate=document.getElementById('f-date').value||new Date().toISOString().slice(0,10);
   const date=rawDate.slice(0,10);
@@ -912,7 +947,7 @@ function fAddFormHTML(){
   return`<div class="card" style="padding:14px;margin-top:8px">
     <div style="font-size:12px;font-weight:600;color:var(--text-sub);margin-bottom:10px">새 고정비용</div>
     <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">항목명</label><input class="form-input" type="text" id="new-fc-name" placeholder="예) 월세, 넷플릭스"></div>
-    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">금액</label><input class="form-input" type="number" id="new-fc-amt" placeholder="0" inputmode="numeric"></div>
+    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">금액</label><input class="form-input" type="text" id="new-fc-amt" placeholder="0" inputmode="numeric"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
       <div><label class="form-label" style="font-size:11px">결제수단</label><select class="form-input" id="new-fc-pay" style="padding:10px 10px">${payOpts}</select></div>
       <div><label class="form-label" style="font-size:11px">구분</label><select class="form-input" id="new-fc-owner" style="padding:10px 10px">${ownerOpts}</select></div>
@@ -923,7 +958,7 @@ function fAddFormHTML(){
 
 function addFixed(){
   const name=document.getElementById('new-fc-name')?.value.trim();
-  const amt=parseInt(document.getElementById('new-fc-amt')?.value)||0;
+  const amt=getMoneyValue('new-fc-amt');
   const pay=document.getElementById('new-fc-pay')?.value||'';
   const owner=document.getElementById('new-fc-owner')?.value||'공동';
   if(!name){alert('항목명을 입력해주세요');return}
@@ -935,6 +970,7 @@ function addFixed(){
   // 입력 초기화
   document.getElementById('new-fc-name').value='';
   document.getElementById('new-fc-amt').value='';
+  setupMoneyInput('new-fc-amt');
 }
 
 function delFixed(id){
@@ -955,11 +991,11 @@ async function buildDashboard(){
 }
 
 async function saveSettings(){
-  S.budgets.도균.식비=parseInt(document.getElementById('s-dk-sib').value)||180000;
-  S.budgets.도균.용돈=parseInt(document.getElementById('s-dk-yd').value)||300000;
-  S.budgets.소영.식비=parseInt(document.getElementById('s-sy-sib').value)||180000;
-  S.budgets.소영.용돈=parseInt(document.getElementById('s-sy-yd').value)||300000;
-  S.corpLimit=parseInt(document.getElementById('s-corp').value)||1000000;
+  S.budgets.도균.식비=getMoneyValue('s-dk-sib')||180000;
+  S.budgets.도균.용돈=getMoneyValue('s-dk-yd')||300000;
+  S.budgets.소영.식비=getMoneyValue('s-sy-sib')||180000;
+  S.budgets.소영.용돈=getMoneyValue('s-sy-yd')||300000;
+  S.corpLimit=getMoneyValue('s-corp')||1000000;
   // 고정비용은 S.fixedCosts 그대로 사용 (목록 형태라 별도 input 없음)
   S.fixedCosts=S.fixedCosts.filter(f=>f.name);
   const month=S.selectedMonth||getMonth();
