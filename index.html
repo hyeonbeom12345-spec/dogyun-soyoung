@@ -678,7 +678,8 @@ function renderGongtong(){
   const el=document.getElementById('home-content');
   const txs=S.txs.filter(t=>t.why==='공동 생활비'&&t.date.slice(0,7)===S.selectedMonth);
   const total=txs.reduce((s,t)=>s+t.amt,0);
-  const fx=S.fixedCosts.reduce((s,f)=>s+f.amt,0);
+  const gongFixed=S.fixedCosts.filter(f=>f.owner==='공동'||!f.owner);
+  const fx=gongFixed.reduce((s,f)=>s+f.amt,0);
 
   el.innerHTML=`
     <div class="card card-teal" style="text-align:center;padding:18px;margin-bottom:12px">
@@ -696,9 +697,9 @@ function renderGongtong(){
         </div>`).join('')
       :'<div class="empty">이 달 공동 생활비 내역이 없어요</div>'}
     </div>
-    <div class="sec-label">고정 비용</div>
+    <div class="sec-label">공동 고정비용</div>
     <div class="card">
-      ${S.fixedCosts.map(f=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px"><span style="color:var(--text-sub)">${f.name}</span><span style="font-weight:600">${fmt(f.amt)}</span></div>`).join('')}
+      ${gongFixed.length?gongFixed.map(f=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px"><span style="color:var(--text-sub)">${f.name}${f.pay?' · '+f.pay:''}</span><span style="font-weight:600">${fmt(f.amt)}</span></div>`).join(''):'<div class="empty" style="padding:12px">공동 고정비용이 없어요</div>'}
       <div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:14px"><span style="font-weight:600">합계</span><span style="font-weight:600;color:#A32D2D">${fmt(fx)}</span></div>
     </div>`;
 }
@@ -862,7 +863,8 @@ function renderHome(){
 
   if(p==='전체'){
     const vt=S.txs.reduce((s,t)=>s+t.amt,0);
-    const fx=S.fixedCosts.reduce((s,f)=>s+f.amt,0);
+    const gongFixed=S.fixedCosts.filter(f=>f.owner==='공동'||!f.owner);
+  const fx=gongFixed.reduce((s,f)=>s+f.amt,0);
     const corp=S.txs.filter(t=>t.pay==='법인카드').reduce((s,t)=>s+t.amt,0);
     const gt=vt+fx;
     const cats={};S.txs.forEach(t=>{cats[t.cat]=(cats[t.cat]||0)+t.amt});
@@ -935,7 +937,17 @@ function renderHome(){
       <span>카테고리별 지출</span>
       <button class="refresh-btn" onclick="loadTxs(true)"><i class="ti ti-refresh"></i> 새로고침</button>
     </div>
-    <div class="card" id="home-cat-stats"></div>`;
+    <div class="card" id="home-cat-stats"></div>
+    ${(()=>{
+      const myFixed=S.fixedCosts.filter(f=>f.owner===p);
+      if(!myFixed.length) return '';
+      const fxTotal=myFixed.reduce((s,f)=>s+f.amt,0);
+      return '<div class="sec-label">'+p+' 고정비용</div>'+
+        '<div class="card">'+
+        myFixed.map(f=>'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px"><span style="color:var(--text-sub)">'+f.name+(f.pay?' · '+f.pay:'')+'</span><span style="font-weight:600">'+fmt(f.amt)+'</span></div>').join('')+
+        '<div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:14px"><span style="font-weight:600">합계</span><span style="font-weight:600;color:#A32D2D">'+fmt(fxTotal)+'</span></div>'+
+        '</div>';
+    })()}`;
   renderHomeCatStats(txs);
 }
 
