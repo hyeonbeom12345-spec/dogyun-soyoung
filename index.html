@@ -363,6 +363,36 @@ const WC={'개인 생활비':'#534AB7','공동 생활비':'#1D9E75','용돈':'#D
 const WB={'개인 생활비':'#EEEDFE','공동 생활비':'#E1F5EE','용돈':'#FAECE7'};
 
 
+
+
+function syncBudgetFromUI(){
+  const dk=document.getElementById('s-dk-yd');
+  const sy=document.getElementById('s-sy-yd');
+  const cp=document.getElementById('s-corp');
+  if(dk) S.budgets.도균.용돈=getMoneyValue('s-dk-yd')||S.budgets.도균.용돈;
+  if(sy) S.budgets.소영.용돈=getMoneyValue('s-sy-yd')||S.budgets.소영.용돈;
+  if(cp) S.corpLimit=getMoneyValue('s-corp')||S.corpLimit;
+}
+
+// 설정 전체를 시트에 저장 (용돈예산 + 고정 + 저축)
+async function pushSettingsToSheet(silent){
+  const month=S.selectedMonth||getMonth();
+  const fixedItems=S.fixedCosts.map(f=>({name:f.name,amt:f.amt,pay:f.pay||'',owner:f.owner||'공동'}));
+  const savingItems=S.savingCosts.map(f=>({name:f.name,amt:f.amt,owner:f.owner||'공동'}));
+  const body={
+    action:'saveSettings', month,
+    '도균_용돈예산':S.budgets.도균.용돈,
+    '소영_용돈예산':S.budgets.소영.용돈,
+    '법인카드한도':S.corpLimit,
+    fixedItems, savingItems
+  };
+  try{
+    const r=await fetch(API,{method:'POST',body:JSON.stringify(body)}).then(r=>r.json());
+    if(r.ok){ if(!silent) toast('저장됐어요 ✓'); }
+    else toast('저장 실패',true);
+  }catch(e){ toast('네트워크 오류',true); }
+}
+
 // 금액 입력 콤마 처리
 function setupMoneyInput(id) {
   const el = document.getElementById(id);
@@ -578,6 +608,11 @@ async function selectMonth(month){
   renderMonthBar();
   await loadSettings(month);
   await loadTxs(false, month);
+  // 설정 탭이면 다시 그려서 월 표시/버튼 갱신
+  if(S.person==='설정'){
+    renderSettings();
+    setTimeout(()=>{['s-dk-yd','s-sy-yd','s-corp','new-fc-amt','new-sv-amt'].forEach(setupMoneyInput);},0);
+  }
 }
 
 
@@ -966,6 +1001,8 @@ function renderSettings(){
       <div class="settings-row"><span style="font-size:14px">소영 용돈</span><input class="settings-input" type="text" id="s-sy-yd" value="${S.budgets.소영.용돈.toLocaleString()}" inputmode="numeric"></div>
       <div class="settings-row"><span style="font-size:14px">법인카드 한도</span><input class="settings-input" type="text" id="s-corp" value="${S.corpLimit.toLocaleString()}" inputmode="numeric"></div>
     </div>
+    <button class="save-btn" onclick="saveBudget()"><i class="ti ti-check"></i> 용돈 예산 저장</button>
+    <div style="height:16px"></div>
     <div class="sec-label" style="margin-top:4px">고정지출</div>
     <div class="card" id="fixed-list">
       ${S.fixedCosts.map(f=>fItemHTML(f)).join('')}
@@ -977,9 +1014,7 @@ function renderSettings(){
       ${S.savingCosts.map(f=>fSavingHTML(f)).join('')}
     </div>
     ${fSavingAddFormHTML()}
-    <div style="height:12px"></div>
-    <button class="save-btn" onclick="saveSettings()"><i class="ti ti-check"></i> 저장하기 (시트에도 반영)</button>
-    <div style="height:8px"></div>
+    <div style="height:16px"></div>
     <button class="save-btn" id="dash-btn" onclick="buildDashboard()" style="background:#3C3489"><i class="ti ti-chart-bar"></i> ${S.selectedMonth||getMonth()} 대시보드 생성</button>
     <div style="height:20px"></div>`;
 }
@@ -1033,6 +1068,8 @@ function addSaving(){
   document.getElementById('new-sv-name').value='';
   document.getElementById('new-sv-amt').value='';
   setupMoneyInput('new-sv-amt');
+  syncBudgetFromUI();
+  pushSettingsToSheet();
 }
 
 let S_selectedSavingId = null;
@@ -1064,7 +1101,8 @@ function saveSavingEdit(){
   closeFixedModal();
   const list = document.getElementById('saving-list');
   if(list) list.innerHTML = S.savingCosts.map(f=>fSavingHTML(f)).join('');
-  toast('수정됐어요 ✓');
+  syncBudgetFromUI();
+  pushSettingsToSheet();
 }
 
 function deleteSaving(){
@@ -1072,7 +1110,8 @@ function deleteSaving(){
   closeFixedModal();
   const list = document.getElementById('saving-list');
   if(list) list.innerHTML = S.savingCosts.map(f=>fSavingHTML(f)).join('');
-  toast('삭제됐어요');
+  syncBudgetFromUI();
+  pushSettingsToSheet();
 }
 
 function fAddFormHTML(){
@@ -1107,6 +1146,8 @@ function addFixed(){
   document.getElementById('new-fc-name').value='';
   document.getElementById('new-fc-amt').value='';
   setupMoneyInput('new-fc-amt');
+  syncBudgetFromUI();
+  pushSettingsToSheet();
 }
 
 
@@ -1193,7 +1234,8 @@ function saveFixedEdit(){
   // 목록 갱신
   const list = document.getElementById('fixed-list');
   if(list) list.innerHTML = S.fixedCosts.map(f=>fItemHTML(f)).join('');
-  toast('수정됐어요 ✓');
+  syncBudgetFromUI();
+  pushSettingsToSheet();
 }
 
 function deleteFixed(){
@@ -1201,7 +1243,8 @@ function deleteFixed(){
   closeFixedModal();
   const list = document.getElementById('fixed-list');
   if(list) list.innerHTML = S.fixedCosts.map(f=>fItemHTML(f)).join('');
-  toast('삭제됐어요');
+  syncBudgetFromUI();
+  pushSettingsToSheet();
 }
 
 function delFixed(id){
@@ -1219,6 +1262,12 @@ async function buildDashboard(){
     else toast('생성 실패: '+r.error, true);
   }catch(e){toast('네트워크 오류',true);}
   if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-chart-bar"></i> '+month+' 대시보드 생성';}
+}
+
+
+async function saveBudget(){
+  syncBudgetFromUI();
+  await pushSettingsToSheet(false);
 }
 
 async function saveSettings(){
