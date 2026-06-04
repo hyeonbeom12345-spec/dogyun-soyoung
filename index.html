@@ -479,7 +479,10 @@ async function loadSettings(month=null){
         .map(([k,v],i)=>({id:100+i,name:k,amt:Number(v)||0,pay:d['결제수단_'+k]||'',owner:d['구분_'+k]||'공동',monthKey:k}));
       S.savingCosts=Object.entries(d)
         .filter(([k])=>k.startsWith('적금_'))
-        .map(([k,v],i)=>({id:200+i,name:k.replace('적금_',''),amt:Number(v)||0,owner:d['구분_적금_'+k.replace('적금_','')]||'공동',monthKey:k}));
+        .map(([k,v],i)=>{
+          const nm=k.replace('적금_','');
+          return {id:200+i,name:nm,amt:Number(v)||0,owner:d['적금구분_'+nm]||'공동',monthKey:k};
+        });
     }
   }catch(e){}
 }
@@ -907,10 +910,10 @@ function renderList(){
     document.getElementById('list-title').textContent=p+' 이번달 수입';
     const incTxs=S.incomeTxs.filter(t=>t.person===p);
     document.getElementById('tx-list-el').innerHTML=incTxs.length?incTxs.map(t=>`
-      <div class="tx-item">
+      <div class="tx-item" onclick="openIncomeModal('${t.id}')">
         <div class="tx-dot" style="background:#1D9E75"></div>
         <div class="tx-info"><div class="tx-name">${t.desc}</div><div class="tx-meta">${t.date.slice(0,10)}</div></div>
-        <div class="tx-right"><div class="tx-amt" style="color:#1D9E75">${fmt(t.amt)}</div></div>
+        <div class="tx-right"><div class="tx-amt" style="color:#1D9E75">${fmt(t.amt)}</div><i class="ti ti-chevron-right" style="font-size:14px;color:#888780"></i></div>
       </div>`).join('')
     :'<div class="empty">수입 내역이 없어요</div>';
   } else {
@@ -959,9 +962,9 @@ function renderSettings(){
     <div style="font-size:13px;font-weight:600;color:var(--purple);margin-bottom:12px;padding:8px 12px;background:var(--purple-light);border-radius:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-calendar"></i> ${S.selectedMonth||getMonth()} 설정 중</div>
     <div class="sec-label">용돈 예산</div>
     <div class="card">
-      <div class="settings-row" style="padding-top:0"><span style="font-size:14px">도균 용돈</span><input class="settings-input" type="number" id="s-dk-yd" value="${S.budgets.도균.용돈}"></div>
-      <div class="settings-row"><span style="font-size:14px">소영 용돈</span><input class="settings-input" type="number" id="s-sy-yd" value="${S.budgets.소영.용돈}"></div>
-      <div class="settings-row"><span style="font-size:14px">법인카드 한도</span><input class="settings-input" type="number" id="s-corp" value="${S.corpLimit}"></div>
+      <div class="settings-row" style="padding-top:0"><span style="font-size:14px">도균 용돈</span><input class="settings-input" type="text" id="s-dk-yd" value="${S.budgets.도균.용돈.toLocaleString()}" inputmode="numeric"></div>
+      <div class="settings-row"><span style="font-size:14px">소영 용돈</span><input class="settings-input" type="text" id="s-sy-yd" value="${S.budgets.소영.용돈.toLocaleString()}" inputmode="numeric"></div>
+      <div class="settings-row"><span style="font-size:14px">법인카드 한도</span><input class="settings-input" type="text" id="s-corp" value="${S.corpLimit.toLocaleString()}" inputmode="numeric"></div>
     </div>
     <div class="sec-label" style="margin-top:4px">고정지출</div>
     <div class="card" id="fixed-list">
@@ -1106,6 +1109,48 @@ function addFixed(){
   setupMoneyInput('new-fc-amt');
 }
 
+
+
+let S_selectedIncomeId = null;
+
+function openIncomeModal(id){
+  S_selectedIncomeId = id;
+  const t = S.incomeTxs.find(x=>String(x.id)===String(id));
+  if(!t) return;
+  document.getElementById('fixed-modal-title').textContent = t.desc;
+  document.getElementById('fixed-modal-sub').textContent = fmt(t.amt) + ' · ' + t.date.slice(0,10) + ' · 수입';
+  document.getElementById('fixed-modal-form').innerHTML=`
+    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">수입 내용</label><input class="form-input" type="text" id="edit-inc-desc" value="${t.desc}"></div>
+    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">금액</label><input class="form-input" type="text" id="edit-inc-amt" value="${t.amt.toLocaleString()}" inputmode="numeric"></div>
+    <div><label class="form-label" style="font-size:11px">날짜</label><input class="form-input" type="date" id="edit-inc-date" value="${t.date.slice(0,10)}"></div>`;
+  document.querySelector('#fixed-modal-overlay .btn-edit').onclick = saveIncomeEdit;
+  document.querySelector('#fixed-modal-overlay .btn-del').onclick = deleteIncome;
+  document.getElementById('fixed-modal-overlay').style.display='flex';
+  setTimeout(()=>setupMoneyInput('edit-inc-amt'),0);
+}
+
+function saveIncomeEdit(){
+  const t = S.incomeTxs.find(x=>String(x.id)===String(S_selectedIncomeId));
+  if(!t) return;
+  t.desc = document.getElementById('edit-inc-desc').value.trim()||t.desc;
+  t.amt = getMoneyValue('edit-inc-amt');
+  t.date = document.getElementById('edit-inc-date').value||t.date;
+  const tx={'ID':String(t.id),'날짜':t.date,'누가':t.person,'뭐했어':t.desc,'얼마':t.amt,'성격이 뭐야':'수입','카드·현금':'','분류':'수입','유형':'수입'};
+  closeFixedModal();
+  renderList();
+  toast('수정됐어요 ✓');
+  apiPost({action:'updateTx',tx}).catch(()=>toast('시트 동기화 실패',true));
+}
+
+function deleteIncome(){
+  const t = S.incomeTxs.find(x=>String(x.id)===String(S_selectedIncomeId));
+  if(!t) return;
+  S.incomeTxs = S.incomeTxs.filter(x=>String(x.id)!==String(S_selectedIncomeId));
+  closeFixedModal();
+  renderList();
+  toast('삭제됐어요');
+  apiPost({action:'deleteTx',id:String(t.id)}).catch(()=>toast('시트 동기화 실패',true));
+}
 
 let S_selectedFixedId = null;
 
