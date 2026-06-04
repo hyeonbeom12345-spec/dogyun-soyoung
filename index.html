@@ -525,7 +525,7 @@ function switchPerson(p,btn){
   S.page='home';
   document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.bnav-btn')[0]?.classList.add('active');
-  if(p==='설정'){renderSettings();setTimeout(()=>{['s-dk-sib','s-dk-yd','s-sy-sib','s-sy-yd','s-corp','new-fc-amt','new-sv-amt'].forEach(setupMoneyInput);},0);}else renderHome();
+  if(p==='설정'){renderSettings();setTimeout(()=>{['s-dk-yd','s-sy-yd','s-corp','new-fc-amt','new-sv-amt'].forEach(setupMoneyInput);},0);}else renderHome();
 }
 
 
@@ -879,7 +879,7 @@ function renderHome(){
       return '<div class="card" style="margin-bottom:12px">' +
         '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">' +
         '<div style="background:#E1F5EE;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#085041;margin-bottom:4px">수입</div><div style="font-size:16px;font-weight:700;color:#1D9E75">' + fmt(myInc) + '</div></div>' +
-        '<div style="background:#EEEDFE;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#3C3489;margin-bottom:4px">적금</div><div style="font-size:16px;font-weight:700;color:#534AB7">' + fmt(mySav) + '</div></div>' +
+        '<div style="background:#EEEDFE;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#3C3489;margin-bottom:4px">저축</div><div style="font-size:16px;font-weight:700;color:#534AB7">' + fmt(mySav) + '</div></div>' +
         '<div style="background:#FCEBEB;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#7A1A1A;margin-bottom:4px">지출</div><div style="font-size:16px;font-weight:700;color:#A32D2D">' + fmt(myExp) + '</div></div>' +
         '<div style="background:' + (myLeft>=0?'#E1F5EE':'#FCEBEB') + ';border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:' + (myLeft>=0?'#085041':'#7A1A1A') + ';margin-bottom:4px">남은 돈</div><div style="font-size:16px;font-weight:700;color:' + (myLeft>=0?'#1D9E75':'#A32D2D') + '">' + fmt(Math.abs(myLeft)) + '</div></div>' +
         '</div>' +
@@ -957,27 +957,19 @@ function renderSettings(){
   const el=document.getElementById('home-content');
   el.innerHTML=`
     <div style="font-size:13px;font-weight:600;color:var(--purple);margin-bottom:12px;padding:8px 12px;background:var(--purple-light);border-radius:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-calendar"></i> ${S.selectedMonth||getMonth()} 설정 중</div>
-    <div class="sec-label">예산 설정</div>
+    <div class="sec-label">용돈 예산</div>
     <div class="card">
-      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px">도균</div>
-      <div class="settings-row"><span style="font-size:14px">식비 예산</span><input class="settings-input" type="number" id="s-dk-sib" value="${S.budgets.도균.식비}"></div>
-      <div class="settings-row"><span style="font-size:14px">용돈 예산</span><input class="settings-input" type="number" id="s-dk-yd" value="${S.budgets.도균.용돈}"></div>
+      <div class="settings-row" style="padding-top:0"><span style="font-size:14px">도균 용돈</span><input class="settings-input" type="number" id="s-dk-yd" value="${S.budgets.도균.용돈}"></div>
+      <div class="settings-row"><span style="font-size:14px">소영 용돈</span><input class="settings-input" type="number" id="s-sy-yd" value="${S.budgets.소영.용돈}"></div>
+      <div class="settings-row"><span style="font-size:14px">법인카드 한도</span><input class="settings-input" type="number" id="s-corp" value="${S.corpLimit}"></div>
     </div>
-    <div class="card">
-      <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:8px">소영</div>
-      <div class="settings-row"><span style="font-size:14px">식비 예산</span><input class="settings-input" type="number" id="s-sy-sib" value="${S.budgets.소영.식비}"></div>
-      <div class="settings-row"><span style="font-size:14px">용돈 예산</span><input class="settings-input" type="number" id="s-sy-yd" value="${S.budgets.소영.용돈}"></div>
-    </div>
-    <div class="card">
-      <div class="settings-row" style="padding-top:0"><span style="font-size:14px">법인카드 한도</span><input class="settings-input" type="number" id="s-corp" value="${S.corpLimit}"></div>
-    </div>
-    <div class="sec-label" style="margin-top:4px">고정 비용</div>
+    <div class="sec-label" style="margin-top:4px">고정지출</div>
     <div class="card" id="fixed-list">
       ${S.fixedCosts.map(f=>fItemHTML(f)).join('')}
     </div>
     ${fAddFormHTML()}
     <div style="height:12px"></div>
-    <div class="sec-label" style="margin-top:4px">적금</div>
+    <div class="sec-label" style="margin-top:4px">저축</div>
     <div class="card" id="saving-list">
       ${S.savingCosts.map(f=>fSavingHTML(f)).join('')}
     </div>
@@ -1017,8 +1009,8 @@ function fSavingHTML(f){
 function fSavingAddFormHTML(){
   const ownerOpts=['공동','도균','소영'].map(o=>`<option value="${o}">${o}</option>`).join('');
   return`<div class="card" style="padding:14px;margin-top:8px">
-    <div style="font-size:12px;font-weight:600;color:var(--text-sub);margin-bottom:10px">새 적금</div>
-    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">항목명</label><input class="form-input" type="text" id="new-sv-name" placeholder="예) 청약, 정기적금"></div>
+    <div style="font-size:12px;font-weight:600;color:var(--text-sub);margin-bottom:10px">새 저축</div>
+    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">항목명</label><input class="form-input" type="text" id="new-sv-name" placeholder="예) 청약, 정기예금"></div>
     <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">금액</label><input class="form-input" type="text" id="new-sv-amt" placeholder="0" inputmode="numeric"></div>
     <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">구분</label><select class="form-input" id="new-sv-owner" style="padding:11px 14px">${ownerOpts}</select></div>
     <button class="add-fixed-btn" onclick="addSaving()" style="margin-top:0"><i class="ti ti-plus"></i> 추가</button>
@@ -1048,7 +1040,7 @@ function openSavingModal(id){
   if(!f) return;
   const ownerOpts=['공동','도균','소영'].map(o=>`<option value="${o}" ${(f.owner||'공동')===o?'selected':''}>${o}</option>`).join('');
   document.getElementById('fixed-modal-title').textContent = f.name;
-  document.getElementById('fixed-modal-sub').textContent = fmt(f.amt) + ' · ' + (f.owner||'공동') + ' · 적금';
+  document.getElementById('fixed-modal-sub').textContent = fmt(f.amt) + ' · ' + (f.owner||'공동') + ' · 저축';
   document.getElementById('fixed-modal-form').innerHTML=`
     <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">항목명</label><input class="form-input" type="text" id="edit-sv-name" value="${f.name}"></div>
     <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">금액</label><input class="form-input" type="text" id="edit-sv-amt" value="${f.amt.toLocaleString()}" inputmode="numeric"></div>
@@ -1185,9 +1177,7 @@ async function buildDashboard(){
 }
 
 async function saveSettings(){
-  S.budgets.도균.식비=getMoneyValue('s-dk-sib')||180000;
   S.budgets.도균.용돈=getMoneyValue('s-dk-yd')||300000;
-  S.budgets.소영.식비=getMoneyValue('s-sy-sib')||180000;
   S.budgets.소영.용돈=getMoneyValue('s-sy-yd')||300000;
   S.corpLimit=getMoneyValue('s-corp')||1000000;
   // 고정비용은 S.fixedCosts 그대로 사용 (목록 형태라 별도 input 없음)
@@ -1195,13 +1185,13 @@ async function saveSettings(){
   const month=S.selectedMonth||getMonth();
 
   const fixedItems=S.fixedCosts.map(f=>({name:f.name,amt:f.amt,pay:f.pay||'',owner:f.owner||'공동'}));
+  const savingItems=S.savingCosts.map(f=>({name:f.name,amt:f.amt,owner:f.owner||'공동'}));
   const body={
     action:'saveSettings', month,
-    '도균_식비예산':S.budgets.도균.식비,'도균_용돈예산':S.budgets.도균.용돈,
-    '소영_식비예산':S.budgets.소영.식비,'소영_용돈예산':S.budgets.소영.용돈,
+    '도균_용돈예산':S.budgets.도균.용돈,
+    '소영_용돈예산':S.budgets.소영.용돈,
     '법인카드한도':S.corpLimit,
-
-    fixedItems
+    fixedItems, savingItems
   };
   try{
     const r=await fetch(API,{method:'POST',body:JSON.stringify(body)}).then(r=>r.json());
