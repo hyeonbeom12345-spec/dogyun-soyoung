@@ -475,13 +475,13 @@ async function loadSettings(month=null){
       // 고정비용 파싱 - reservedKeys 제외한 나머지
       const reservedSettingsKeys=['도균_식비예산','도균_용돈예산','소영_식비예산','소영_용돈예산','법인카드한도','도균_수입1','도균_수입2','도균_수입기타','소영_수입1','소영_수입2','소영_수입기타'];
       S.fixedCosts=Object.entries(d)
-        .filter(([k])=>!reservedSettingsKeys.includes(k)&&!k.startsWith('결제수단_')&&!k.startsWith('구분_')&&!k.startsWith('적금_')&&!k.startsWith('적금구분_'))
+        .filter(([k])=>!reservedSettingsKeys.includes(k)&&!k.startsWith('결제수단_')&&!k.startsWith('구분_')&&!k.startsWith('저축_')&&!k.startsWith('저축_'))
         .map(([k,v],i)=>({id:100+i,name:k,amt:Number(v)||0,pay:d['결제수단_'+k]||'',owner:d['구분_'+k]||'공동',monthKey:k}));
       S.savingCosts=Object.entries(d)
-        .filter(([k])=>k.startsWith('적금_'))
+        .filter(([k])=>k.startsWith('저축_'))
         .map(([k,v],i)=>{
-          const nm=k.replace('적금_','');
-          return {id:200+i,name:nm,amt:Number(v)||0,owner:d['적금구분_'+nm]||'공동',monthKey:k};
+          const nm=k.replace('저축_','');
+          return {id:200+i,name:nm,amt:Number(v)||0,owner:d['구분_저축_'+nm]||'공동',monthKey:k};
         });
     }
   }catch(e){}
