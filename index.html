@@ -1007,9 +1007,31 @@ function renderStats(){
     <div class="stat-grid">
       ${WHY_OPTS.map(w=>{const s=txs.filter(t=>t.why===w).reduce((a,t)=>a+t.amt,0);return`<div class="stat"><div class="stat-label">${w}</div><div class="stat-value" style="font-size:15px;color:${WC[w]}">${fmt(s)}</div></div>`;}).join('')}
     </div>
-    <div class="sec-label">카드·현금별</div>
+    <div class="sec-label">카드·현금별 정산 (${p} 명의)</div>
     <div class="card">
-      ${PAY_OPTS.map(pay=>{const s=txs.filter(t=>t.pay===pay).reduce((a,t)=>a+t.amt,0);return s?`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text-sub)">${pay}</span><span style="font-weight:600">${fmt(s)}</span></div>`:'';}).join('')||'<div class="empty" style="padding:12px">데이터 없음</div>'}
+      ${(()=>{
+        // 명의 기준: 누가 썼든 이 사람 카드/현금으로 나간 것 (전체 거래 + 고정비용)
+        const allTxs=S.txs.filter(t=>t.date.slice(0,7)===S.selectedMonth&&t.type!=='수입');
+        const payMap={};let etc=0;
+        allTxs.forEach(t=>{
+          const pay=t.pay||'';
+          if(!pay) return;
+          if(pay.indexOf('기타')===0){ if(t.person===p) etc+=t.amt; }
+          else payMap[pay]=(payMap[pay]||0)+t.amt;
+        });
+        S.fixedCosts.forEach(f=>{
+          if(!f.pay) return;
+          if(f.pay.indexOf('기타')===0){ if(f.owner===p) etc+=f.amt; }
+          else payMap[f.pay]=(payMap[f.pay]||0)+f.amt;
+        });
+        const names=p==='도균'?['도균 신용카드','도균 체크카드','도균 현금']:['소영 신용카드','소영 체크카드','소영 현금'];
+        let items=names.map(n=>[n,payMap[n]||0]).filter(([,v])=>v>0);
+        if(etc>0) items.push(['기타',etc]);
+        const tot=items.reduce((s,[,v])=>s+v,0);
+        if(!items.length) return '<div class="empty" style="padding:12px">데이터 없음</div>';
+        return items.map(([pay,s])=>'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text-sub)">'+pay+'</span><span style="font-weight:600">'+fmt(s)+'</span></div>').join('')+
+          '<div style="display:flex;justify-content:space-between;padding:10px 0 0;font-size:14px"><span style="font-weight:600">합계</span><span style="font-weight:700;color:#A32D2D">'+fmt(tot)+'</span></div>';
+      })()}
     </div>`;
 }
 
