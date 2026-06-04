@@ -931,7 +931,7 @@ function renderHome(){
         '<div style="background:#E1F5EE;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#085041;margin-bottom:4px">수입</div><div style="font-size:16px;font-weight:700;color:#1D9E75">' + fmt(myInc) + '</div></div>' +
         '<div style="background:#EEEDFE;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#3C3489;margin-bottom:4px">저축</div><div style="font-size:16px;font-weight:700;color:#534AB7">' + fmt(mySav) + '</div></div>' +
         '<div style="background:#FCEBEB;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#7A1A1A;margin-bottom:4px">지출</div><div style="font-size:16px;font-weight:700;color:#A32D2D">' + fmt(myExp) + '</div></div>' +
-        '<div style="background:' + (myLeft>=0?'#E1F5EE':'#FCEBEB') + ';border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:' + (myLeft>=0?'#085041':'#7A1A1A') + ';margin-bottom:4px">남은 돈</div><div style="font-size:16px;font-weight:700;color:' + (myLeft>=0?'#1D9E75':'#A32D2D') + '">' + fmt(Math.abs(myLeft)) + '</div></div>' +
+        '<div style="background:' + (myLeft>=0?'#E1F5EE':'#FCEBEB') + ';border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:' + (myLeft>=0?'#085041':'#7A1A1A') + ';margin-bottom:4px">남은 돈</div><div style="font-size:16px;font-weight:700;color:' + (myLeft>=0?'#1D9E75':'#A32D2D') + '">' + (myLeft<0?'-':'') + fmt(Math.abs(myLeft)) + '</div></div>' +
         '</div>' +
         '<div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between;align-items:center">' +
         '<span style="font-size:13px;color:var(--text-sub)">남은 용돈</span>' +
