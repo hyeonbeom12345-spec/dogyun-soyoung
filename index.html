@@ -545,10 +545,24 @@ function makeRG(id,opts,key){
     el.appendChild(btn);
   });
 }
-function renderAddButtons(){makeRG('rg-why',WHY_OPTS,'why');makeRG('rg-pay',PAY_OPTS,'pay');makeRG('rg-cat',CAT_OPTS,'cat')}
+function renderAddButtons(){
+  let payOpts=PAY_OPTS, catOpts=CAT_OPTS;
+  if(S.person==='소영'){
+    // 왼쪽 열에 소영이 오도록 (2열 그리드라 홀수번째가 왼쪽)
+    payOpts=['소영 신용카드','도균 신용카드','소영 체크카드','도균 체크카드','소영 현금','도균 현금','법인카드','기타'];
+    catOpts=['소영 식비','도균 식비','공동 식비','교통','쇼핑','문화·여가','의료','기타'];
+  }
+  makeRG('rg-why',WHY_OPTS,'why');
+  makeRG('rg-pay',payOpts,'pay');
+  makeRG('rg-cat',catOpts,'cat');
+}
 
 function switchPerson(p,btn){
   S.person=p;
+  // 개인 탭이면 추가 폼 기본값을 그 사람 기준으로 (수정 중 아닐 때)
+  if(!S.editingId&&(p==='도균'||p==='소영')){
+    S.form={why:'개인 생활비',pay:p+' 신용카드',cat:p+' 식비'};
+  }
   document.querySelectorAll('.top-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   const special=['공동','전체','설정'].includes(p);
