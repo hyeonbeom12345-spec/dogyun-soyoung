@@ -264,6 +264,10 @@ body{display:flex;justify-content:center;align-items:flex-start}
   <div class="content">
     <div class="page active" id="page-home"><div id="home-content"></div></div>
     <div class="page" id="page-list">
+      <div style="display:flex;gap:0;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1.5px solid var(--border)">
+        <button id="list-tab-expense" onclick="switchListTab('expense')" style="flex:1;padding:10px;font-size:13px;font-weight:600;border:none;background:#FCEBEB;color:#A32D2D;cursor:pointer;font-family:var(--font)">💸 지출</button>
+        <button id="list-tab-income" onclick="switchListTab('income')" style="flex:1;padding:10px;font-size:13px;font-weight:600;border:none;background:var(--gray-light);color:var(--text-sub);cursor:pointer;font-family:var(--font)">💰 수입</button>
+      </div>
       <div class="sec-label" id="list-title-wrap">
         <span id="list-title">이번달 지출</span>
         <button class="refresh-btn" onclick="loadTxs(true)"><i class="ti ti-refresh"></i> 새로고침</button>
@@ -331,6 +335,20 @@ body{display:flex;justify-content:center;align-items:flex-start}
     </div>
   </div>
   <div class="toast" id="toast"></div>
+
+  <!-- 고정비용 수정 모달 -->
+  <div id="fixed-modal-overlay" onclick="closeFixedModal(event)" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;align-items:flex-end;justify-content:center">
+    <div style="background:var(--white);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:430px;padding-bottom:calc(20px + env(safe-area-inset-bottom))">
+      <div style="font-size:16px;font-weight:600;margin-bottom:4px" id="fixed-modal-title"></div>
+      <div style="font-size:12px;color:var(--text-sub);margin-bottom:14px" id="fixed-modal-sub"></div>
+      <div id="fixed-modal-form"></div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="btn-modal btn-edit" onclick="saveFixedEdit()"><i class="ti ti-check"></i> 수정</button>
+        <button class="btn-modal btn-del" onclick="deleteFixed()"><i class="ti ti-trash"></i> 삭제</button>
+        <button class="btn-modal btn-close" onclick="closeFixedModal()">닫기</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -389,7 +407,9 @@ let S={
   corpLimit:1000000,
   selectedId:null,
   addType:null,
+  listTab:'expense',
   incomeTxs:[],
+  savingCosts:[],
   selectedMonth:new Date().toISOString().slice(0,7),
   income:{도균:{수입1:0,수입2:0,기타:0},소영:{수입1:0,수입2:0,기타:0}}
 };
@@ -455,8 +475,11 @@ async function loadSettings(month=null){
       // 고정비용 파싱 - reservedKeys 제외한 나머지
       const reservedSettingsKeys=['도균_식비예산','도균_용돈예산','소영_식비예산','소영_용돈예산','법인카드한도','도균_수입1','도균_수입2','도균_수입기타','소영_수입1','소영_수입2','소영_수입기타'];
       S.fixedCosts=Object.entries(d)
-        .filter(([k])=>!reservedSettingsKeys.includes(k)&&!k.startsWith('결제수단_')&&!k.startsWith('구분_'))
+        .filter(([k])=>!reservedSettingsKeys.includes(k)&&!k.startsWith('결제수단_')&&!k.startsWith('구분_')&&!k.startsWith('적금_'))
         .map(([k,v],i)=>({id:100+i,name:k,amt:Number(v)||0,pay:d['결제수단_'+k]||'',owner:d['구분_'+k]||'공동',monthKey:k}));
+      S.savingCosts=Object.entries(d)
+        .filter(([k])=>k.startsWith('적금_'))
+        .map(([k,v],i)=>({id:200+i,name:k.replace('적금_',''),amt:Number(v)||0,owner:d['구분_적금_'+k.replace('적금_','')]||'공동',monthKey:k}));
     }
   }catch(e){}
 }
@@ -502,7 +525,7 @@ function switchPerson(p,btn){
   S.page='home';
   document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('.bnav-btn')[0]?.classList.add('active');
-  if(p==='설정'){renderSettings();setTimeout(()=>{['s-dk-sib','s-dk-yd','s-sy-sib','s-sy-yd','s-corp','new-fc-amt'].forEach(setupMoneyInput);},0);}else renderHome();
+  if(p==='설정'){renderSettings();setTimeout(()=>{['s-dk-sib','s-dk-yd','s-sy-sib','s-sy-yd','s-corp','new-fc-amt','new-sv-amt'].forEach(setupMoneyInput);},0);}else renderHome();
 }
 
 
@@ -596,6 +619,21 @@ function renderHomeCatStats(txs) {
       '<div class="prog-bar"><div class="prog-fill" style="width:'+pct+'%;background:'+color+'"></div></div>' +
       '</div>';
   }).join('');
+}
+
+
+function switchListTab(tab){
+  S.listTab=tab;
+  const expBtn=document.getElementById('list-tab-expense');
+  const incBtn=document.getElementById('list-tab-income');
+  if(tab==='expense'){
+    expBtn.style.cssText='flex:1;padding:10px;font-size:13px;font-weight:600;border:none;background:#FCEBEB;color:#A32D2D;cursor:pointer;font-family:var(--font)';
+    incBtn.style.cssText='flex:1;padding:10px;font-size:13px;font-weight:600;border:none;background:var(--gray-light);color:var(--text-sub);cursor:pointer;font-family:var(--font)';
+  } else {
+    incBtn.style.cssText='flex:1;padding:10px;font-size:13px;font-weight:600;border:none;background:#E1F5EE;color:#1D9E75;cursor:pointer;font-family:var(--font)';
+    expBtn.style.cssText='flex:1;padding:10px;font-size:13px;font-weight:600;border:none;background:var(--gray-light);color:var(--text-sub);cursor:pointer;font-family:var(--font)';
+  }
+  renderList();
 }
 
 function renderGongtong(){
@@ -831,20 +869,26 @@ function renderHome(){
   const effY=budget.용돈+(surplus.식비||0);
   const ySpent=txs.filter(t=>t.why==='용돈').reduce((s,t)=>s+t.amt,0);
   const yLeft=effY-ySpent;
-  const sSpent=txs.filter(t=>t.cat===p+' 식비').reduce((s,t)=>s+t.amt,0);
-  const sPct=Math.min(100,Math.round(sSpent/budget.식비*100));
-  const sLeft=budget.식비-sSpent;
+
   el.innerHTML=`
-    <div class="card card-purple" style="text-align:center;padding:20px;margin-bottom:12px">
-      <div style="font-size:13px;color:#3C3489;margin-bottom:4px;font-weight:500">남은 용돈</div>
-      <div style="font-size:34px;font-weight:700;color:${yLeft<0?'#A32D2D':'#534AB7'}">${fmt(Math.abs(yLeft))}${yLeft<0?' 초과':''}</div>
-      <div style="font-size:12px;color:#534AB7;margin-top:5px">기본 ${fmt(budget.용돈)} + 전달 이월 ${fmt(surplus.식비||0)}</div>
-    </div>
-    <div class="card">
-      <div class="prog-row"><span>${p} 식비</span><span><b>${fmt(sSpent)}</b> / ${fmt(budget.식비)}</span></div>
-      <div class="prog-bar"><div class="prog-fill" style="width:${sPct}%;background:${sPct>=100?'#E24B4A':sPct>=80?'#EF9F27':'#534AB7'}"></div></div>
-      <div style="font-size:12px;margin-top:6px;color:${sLeft>=0?'#1D9E75':'#A32D2D'}">${sLeft>=0?fmt(sLeft)+' 남음 → 다음달 용돈에 이월':fmt(Math.abs(sLeft))+' 초과 → 이월 없음'}</div>
-    </div>
+    ${(()=>{
+      const myInc=S.incomeTxs.filter(t=>t.person===p).reduce((s,t)=>s+t.amt,0);
+      const mySav=S.savingCosts.filter(f=>f.owner===p||f.owner==='공동').reduce((s,f)=>s+f.amt,0);
+      const myExp=txs.reduce((s,t)=>s+t.amt,0);
+      const myLeft=myInc-myExp-mySav;
+      return '<div class="card" style="margin-bottom:12px">' +
+        '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px">' +
+        '<div style="background:#E1F5EE;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#085041;margin-bottom:4px">수입</div><div style="font-size:16px;font-weight:700;color:#1D9E75">' + fmt(myInc) + '</div></div>' +
+        '<div style="background:#EEEDFE;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#3C3489;margin-bottom:4px">적금</div><div style="font-size:16px;font-weight:700;color:#534AB7">' + fmt(mySav) + '</div></div>' +
+        '<div style="background:#FCEBEB;border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:#7A1A1A;margin-bottom:4px">지출</div><div style="font-size:16px;font-weight:700;color:#A32D2D">' + fmt(myExp) + '</div></div>' +
+        '<div style="background:' + (myLeft>=0?'#E1F5EE':'#FCEBEB') + ';border-radius:10px;padding:12px;text-align:center"><div style="font-size:11px;color:' + (myLeft>=0?'#085041':'#7A1A1A') + ';margin-bottom:4px">남은 돈</div><div style="font-size:16px;font-weight:700;color:' + (myLeft>=0?'#1D9E75':'#A32D2D') + '">' + fmt(Math.abs(myLeft)) + '</div></div>' +
+        '</div>' +
+        '<div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between;align-items:center">' +
+        '<span style="font-size:13px;color:var(--text-sub)">남은 용돈</span>' +
+        '<span style="font-size:15px;font-weight:700;color:' + (yLeft<0?'#A32D2D':'#534AB7') + '">' + fmt(Math.abs(yLeft)) + (yLeft<0?' 초과':'') + '</span>' +
+        '</div></div>';
+    })()}
+
     <div class="stat-grid">
       <div class="stat"><div class="stat-label">개인 생활비</div><div class="stat-value" style="color:#A32D2D;font-size:16px">${fmt(txs.filter(t=>t.why==='개인 생활비').reduce((s,t)=>s+t.amt,0))}</div></div>
       <div class="stat"><div class="stat-label">공동 생활비</div><div class="stat-value" style="color:#A32D2D;font-size:16px">${fmt(txs.filter(t=>t.why==='공동 생활비').reduce((s,t)=>s+t.amt,0))}</div></div>
@@ -858,15 +902,28 @@ function renderHome(){
 }
 
 function renderList(){
-  const p=S.person,txs=getTxs(p);
-  document.getElementById('list-title').textContent=p+' 이번달 지출';
-  document.getElementById('tx-list-el').innerHTML=txs.length?txs.map(t=>`
-    <div class="tx-item" onclick="openModal('${t.id}')">
-      <div class="tx-dot" style="background:${CC[t.cat]||'#888'}"></div>
-      <div class="tx-info"><div class="tx-name">${t.desc}</div><div class="tx-meta">${t.date.slice(0,10)} · ${t.cat}</div></div>
-      <div class="tx-right"><div class="tx-amt">${fmt(t.amt)}</div><div class="badge" style="background:${WB[t.why]};color:${WC[t.why]}">${t.why}</div></div>
-    </div>`).join('')
-  :'<div class="empty">아직 지출이 없어요</div>';
+  const p=S.person;
+  if(S.listTab==='income'){
+    document.getElementById('list-title').textContent=p+' 이번달 수입';
+    const incTxs=S.incomeTxs.filter(t=>t.person===p);
+    document.getElementById('tx-list-el').innerHTML=incTxs.length?incTxs.map(t=>`
+      <div class="tx-item">
+        <div class="tx-dot" style="background:#1D9E75"></div>
+        <div class="tx-info"><div class="tx-name">${t.desc}</div><div class="tx-meta">${t.date.slice(0,10)}</div></div>
+        <div class="tx-right"><div class="tx-amt" style="color:#1D9E75">${fmt(t.amt)}</div></div>
+      </div>`).join('')
+    :'<div class="empty">수입 내역이 없어요</div>';
+  } else {
+    const txs=getTxs(p);
+    document.getElementById('list-title').textContent=p+' 이번달 지출';
+    document.getElementById('tx-list-el').innerHTML=txs.length?txs.map(t=>`
+      <div class="tx-item" onclick="openModal('${t.id}')">
+        <div class="tx-dot" style="background:${CC[t.cat]||'#888'}"></div>
+        <div class="tx-info"><div class="tx-name">${t.desc}</div><div class="tx-meta">${t.date.slice(0,10)} · ${t.cat}</div></div>
+        <div class="tx-right"><div class="tx-amt">${fmt(t.amt)}</div><div class="badge" style="background:${WB[t.why]};color:${WC[t.why]}">${t.why}</div></div>
+      </div>`).join('')
+    :'<div class="empty">아직 지출이 없어요</div>';
+  }
 }
 
 function renderStats(){
@@ -920,6 +977,12 @@ function renderSettings(){
     </div>
     ${fAddFormHTML()}
     <div style="height:12px"></div>
+    <div class="sec-label" style="margin-top:4px">적금</div>
+    <div class="card" id="saving-list">
+      ${S.savingCosts.map(f=>fSavingHTML(f)).join('')}
+    </div>
+    ${fSavingAddFormHTML()}
+    <div style="height:12px"></div>
     <button class="save-btn" onclick="saveSettings()"><i class="ti ti-check"></i> 저장하기 (시트에도 반영)</button>
     <div style="height:8px"></div>
     <button class="save-btn" id="dash-btn" onclick="buildDashboard()" style="background:#3C3489"><i class="ti ti-chart-bar"></i> ${S.selectedMonth||getMonth()} 대시보드 생성</button>
@@ -930,13 +993,91 @@ function fItemHTML(f){
   const ownerColor={'공동':'#1D9E75','도균':'#534AB7','소영':'#D4537E'}[f.owner||'공동']||'#888';
   const ownerBg={'공동':'#E1F5EE','도균':'#EEEDFE','소영':'#FBEAF0'}[f.owner||'공동']||'#F1EFE8';
   const payShort=(f.pay||'').replace(' 신용카드','신용').replace(' 체크카드','체크').replace(' 현금','현금');
-  return`<div id="fc-${f.id}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${ownerBg};border-radius:10px;margin-bottom:6px">
+  return`<div id="fc-${f.id}" onclick="openFixedModal(${f.id})" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${ownerBg};border-radius:10px;margin-bottom:6px;cursor:pointer;active:opacity:0.8">
     <span style="font-size:11px;font-weight:700;color:${ownerColor};background:${ownerBg};border:1.5px solid ${ownerColor};border-radius:6px;padding:2px 7px;flex-shrink:0">${f.owner||'공동'}</span>
     <span style="flex:1;font-size:14px;font-weight:600;color:#2C2C2A;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span>
     <span style="font-size:13px;font-weight:700;color:#A32D2D;flex-shrink:0">${f.amt?'₩'+Number(f.amt).toLocaleString():'-'}</span>
     <span style="font-size:11px;color:#888780;flex-shrink:0">${payShort||'-'}</span>
-    <button class="icon-btn" onclick="delFixed(${f.id})" style="flex-shrink:0;width:28px;height:28px"><i class="ti ti-trash" style="font-size:16px"></i></button>
+    <i class="ti ti-chevron-right" style="font-size:14px;color:#888780;flex-shrink:0"></i>
   </div>`;
+}
+
+
+function fSavingHTML(f){
+  const ownerColor={'공동':'#1D9E75','도균':'#534AB7','소영':'#D4537E'}[f.owner||'공동']||'#888';
+  const ownerBg={'공동':'#E1F5EE','도균':'#EEEDFE','소영':'#FBEAF0'}[f.owner||'공동']||'#F1EFE8';
+  return`<div id="sv-${f.id}" onclick="openSavingModal(${f.id})" style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:${ownerBg};border-radius:10px;margin-bottom:6px;cursor:pointer">
+    <span style="font-size:11px;font-weight:700;color:${ownerColor};border:1.5px solid ${ownerColor};border-radius:6px;padding:2px 7px;flex-shrink:0">${f.owner||'공동'}</span>
+    <span style="flex:1;font-size:14px;font-weight:600;color:#2C2C2A">${f.name}</span>
+    <span style="font-size:13px;font-weight:700;color:#534AB7;flex-shrink:0">${f.amt?'₩'+Number(f.amt).toLocaleString():'-'}</span>
+    <i class="ti ti-chevron-right" style="font-size:14px;color:#888780;flex-shrink:0"></i>
+  </div>`;
+}
+
+function fSavingAddFormHTML(){
+  const ownerOpts=['공동','도균','소영'].map(o=>`<option value="${o}">${o}</option>`).join('');
+  return`<div class="card" style="padding:14px;margin-top:8px">
+    <div style="font-size:12px;font-weight:600;color:var(--text-sub);margin-bottom:10px">새 적금</div>
+    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">항목명</label><input class="form-input" type="text" id="new-sv-name" placeholder="예) 청약, 정기적금"></div>
+    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">금액</label><input class="form-input" type="text" id="new-sv-amt" placeholder="0" inputmode="numeric"></div>
+    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">구분</label><select class="form-input" id="new-sv-owner" style="padding:11px 14px">${ownerOpts}</select></div>
+    <button class="add-fixed-btn" onclick="addSaving()" style="margin-top:0"><i class="ti ti-plus"></i> 추가</button>
+  </div>`;
+}
+
+function addSaving(){
+  const name=document.getElementById('new-sv-name')?.value.trim();
+  const amt=getMoneyValue('new-sv-amt');
+  const owner=document.getElementById('new-sv-owner')?.value||'공동';
+  if(!name){alert('항목명을 입력해주세요');return}
+  const n={id:Date.now(),name,amt,owner};
+  S.savingCosts.push(n);
+  const list=document.getElementById('saving-list');
+  const d=document.createElement('div');d.innerHTML=fSavingHTML(n);
+  list.appendChild(d.firstElementChild);
+  document.getElementById('new-sv-name').value='';
+  document.getElementById('new-sv-amt').value='';
+  setupMoneyInput('new-sv-amt');
+}
+
+let S_selectedSavingId = null;
+
+function openSavingModal(id){
+  S_selectedSavingId = id;
+  const f = S.savingCosts.find(x=>x.id===id);
+  if(!f) return;
+  const ownerOpts=['공동','도균','소영'].map(o=>`<option value="${o}" ${(f.owner||'공동')===o?'selected':''}>${o}</option>`).join('');
+  document.getElementById('fixed-modal-title').textContent = f.name;
+  document.getElementById('fixed-modal-sub').textContent = fmt(f.amt) + ' · ' + (f.owner||'공동') + ' · 적금';
+  document.getElementById('fixed-modal-form').innerHTML=`
+    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">항목명</label><input class="form-input" type="text" id="edit-sv-name" value="${f.name}"></div>
+    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">금액</label><input class="form-input" type="text" id="edit-sv-amt" value="${f.amt.toLocaleString()}" inputmode="numeric"></div>
+    <div><label class="form-label" style="font-size:11px">구분</label><select class="form-input" id="edit-sv-owner" style="padding:11px 14px">${ownerOpts}</select></div>`;
+  // 수정/삭제 버튼 연결 변경
+  document.querySelector('#fixed-modal-overlay .btn-edit').onclick = saveSavingEdit;
+  document.querySelector('#fixed-modal-overlay .btn-del').onclick = deleteSaving;
+  document.getElementById('fixed-modal-overlay').style.display='flex';
+  setTimeout(()=>setupMoneyInput('edit-sv-amt'),0);
+}
+
+function saveSavingEdit(){
+  const f = S.savingCosts.find(x=>x.id===S_selectedSavingId);
+  if(!f) return;
+  f.name = document.getElementById('edit-sv-name').value.trim()||f.name;
+  f.amt = getMoneyValue('edit-sv-amt');
+  f.owner = document.getElementById('edit-sv-owner').value;
+  closeFixedModal();
+  const list = document.getElementById('saving-list');
+  if(list) list.innerHTML = S.savingCosts.map(f=>fSavingHTML(f)).join('');
+  toast('수정됐어요 ✓');
+}
+
+function deleteSaving(){
+  S.savingCosts = S.savingCosts.filter(f=>f.id!==S_selectedSavingId);
+  closeFixedModal();
+  const list = document.getElementById('saving-list');
+  if(list) list.innerHTML = S.savingCosts.map(f=>fSavingHTML(f)).join('');
+  toast('삭제됐어요');
 }
 
 function fAddFormHTML(){
@@ -971,6 +1112,59 @@ function addFixed(){
   document.getElementById('new-fc-name').value='';
   document.getElementById('new-fc-amt').value='';
   setupMoneyInput('new-fc-amt');
+}
+
+
+let S_selectedFixedId = null;
+
+function openFixedModal(id){
+  S_selectedFixedId = id;
+  const f = S.fixedCosts.find(x=>x.id===id);
+  if(!f) return;
+  document.getElementById('fixed-modal-title').textContent = f.name;
+  document.getElementById('fixed-modal-sub').textContent = fmt(f.amt) + (f.pay?' · '+f.pay:'') + ' · ' + (f.owner||'공동');
+  const PAY_SHORT=['도균 신용','도균 체크','도균 현금','소영 신용','소영 체크','소영 현금','법인카드','기타'];
+  const PAY_FULL=['도균 신용카드','도균 체크카드','도균 현금','소영 신용카드','소영 체크카드','소영 현금','법인카드','기타'];
+  const payOpts=PAY_SHORT.map((s,i)=>`<option value="${PAY_FULL[i]}" ${(f.pay||'')==PAY_FULL[i]?'selected':''}>${s}</option>`).join('');
+  const ownerOpts=['공동','도균','소영'].map(o=>`<option value="${o}" ${(f.owner||'공동')===o?'selected':''}>${o}</option>`).join('');
+  document.getElementById('fixed-modal-form').innerHTML=`
+    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">항목명</label><input class="form-input" type="text" id="edit-fc-name" value="${f.name}"></div>
+    <div class="form-row" style="margin-bottom:10px"><label class="form-label" style="font-size:11px">금액</label><input class="form-input" type="text" id="edit-fc-amt" value="${f.amt.toLocaleString()}" inputmode="numeric"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div><label class="form-label" style="font-size:11px">결제수단</label><select class="form-input" id="edit-fc-pay" style="padding:10px">${payOpts}</select></div>
+      <div><label class="form-label" style="font-size:11px">구분</label><select class="form-input" id="edit-fc-owner" style="padding:10px">${ownerOpts}</select></div>
+    </div>`;
+  document.querySelector('#fixed-modal-overlay .btn-edit').onclick = saveFixedEdit;
+  document.querySelector('#fixed-modal-overlay .btn-del').onclick = deleteFixed;
+  document.getElementById('fixed-modal-overlay').style.display='flex';
+  setTimeout(()=>setupMoneyInput('edit-fc-amt'),0);
+}
+
+function closeFixedModal(e){
+  if(!e||e.target===document.getElementById('fixed-modal-overlay'))
+    document.getElementById('fixed-modal-overlay').style.display='none';
+}
+
+function saveFixedEdit(){
+  const f = S.fixedCosts.find(x=>x.id===S_selectedFixedId);
+  if(!f) return;
+  f.name = document.getElementById('edit-fc-name').value.trim()||f.name;
+  f.amt = getMoneyValue('edit-fc-amt');
+  f.pay = document.getElementById('edit-fc-pay').value;
+  f.owner = document.getElementById('edit-fc-owner').value;
+  closeFixedModal();
+  // 목록 갱신
+  const list = document.getElementById('fixed-list');
+  if(list) list.innerHTML = S.fixedCosts.map(f=>fItemHTML(f)).join('');
+  toast('수정됐어요 ✓');
+}
+
+function deleteFixed(){
+  S.fixedCosts = S.fixedCosts.filter(f=>f.id!==S_selectedFixedId);
+  closeFixedModal();
+  const list = document.getElementById('fixed-list');
+  if(list) list.innerHTML = S.fixedCosts.map(f=>fItemHTML(f)).join('');
+  toast('삭제됐어요');
 }
 
 function delFixed(id){
